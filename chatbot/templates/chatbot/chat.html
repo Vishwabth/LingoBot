@@ -1,0 +1,291 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LingoBot - Communication Skills Assistant</title>
+  <link rel="stylesheet" href="{% static 'chatbot/chat.css' %}">
+  <style>
+    :root{
+      --bg1:#6a85f1; --bg2:#7f5bd1;
+      --user1:#4facfe; --user2:#00f2fe;
+      --bot:#f7f8fb; --card:#ffffffee; --shadow:rgba(0,0,0,.12);
+      --ink:#1f2430; --muted:#777; --ring:#e7e8f3;
+    }
+    * { box-sizing: border-box }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      min-height:100vh; margin:0; display:flex; flex-direction:column; color:var(--ink);
+    }
+
+    /* header */
+    .header{
+      background:#fff; padding:.9rem 1rem; display:flex; align-items:center; justify-content:space-between;
+      box-shadow:0 2px 12px rgba(0,0,0,.06);
+    }
+    .brand{display:flex; align-items:center; gap:.6rem}
+    .brand h1{font-size:1.25rem; margin:0}
+    .header .hint{color:var(--muted); font-size:.9rem}
+
+    /* shell */
+    .chat-container{
+      flex:1; max-width:860px; width:100%; margin:1rem auto; background:var(--card);
+      border-radius:16px; box-shadow:0 10px 28px var(--shadow); display:flex; flex-direction:column; overflow:hidden;
+    }
+
+    /* stream */
+    #chat-box{flex:1; padding:1rem; overflow-y:auto; display:flex; flex-direction:column; gap:.9rem}
+    .message{display:flex; align-items:flex-end; gap:.6rem}
+    .message.user{flex-direction:row-reverse}
+    .avatar{width:36px; height:36px; border-radius:999px; display:grid; place-items:center; color:#fff; flex:0 0 36px}
+    .avatar.bot{background:linear-gradient(135deg,var(--bg1),var(--bg2))}
+    .avatar.user{background:linear-gradient(135deg,var(--user1),var(--user2))}
+    .bubble{
+      max-width:76%; padding:.7rem .95rem; border-radius:14px; line-height:1.45; background:var(--bot);
+      word-wrap:break-word; white-space:pre-wrap;
+    }
+    .message.user .bubble{background:linear-gradient(135deg,var(--user1),var(--user2)); color:#fff}
+    .meta{font-size:.75rem; color:var(--muted); margin-top:.2rem}
+    .message.user .meta{align-self:flex-end}
+
+    /* horizontal tokens for user's message */
+    .bubble.tokenized{display:flex; flex-wrap:wrap; gap:.35rem .35rem; padding:.55rem .7rem}
+    .token{
+      display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .55rem; border-radius:999px; font-size:.95rem;
+      background:#ffffff22; border:1px solid #ffffff55;
+    }
+    .token .e{display:inline-block}
+
+    /* typing (kept, but subtle) */
+    .typing{display:flex; align-items:flex-end; gap:.6rem}
+    .dots{display:inline-flex; gap:4px; margin-left:.35rem}
+    .dots span{width:6px; height:6px; background:#8fa1ff; border-radius:999px; animation:bump 1.4s infinite}
+    .dots span:nth-child(2){animation-delay:.2s}
+    .dots span:nth-child(3){animation-delay:.4s}
+    @keyframes bump{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+
+    /* input row: strictly horizontal */
+    .input-row{
+      display:flex; gap:.6rem; padding:.75rem; background:#fff; border-top:1px solid var(--ring); align-items:center;
+    }
+    .icon-btn, .btn{
+      height:40px; padding:0 .85rem; border-radius:999px; border:1px solid var(--ring); background:#fff; cursor:pointer; font-size:1rem;
+      display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
+    }
+    .btn.primary{background:linear-gradient(135deg,var(--bg1),var(--bg2)); color:#fff; border:none}
+    .input-wrap{
+      flex:1; display:flex; align-items:center; gap:.4rem; border:2px solid var(--ring); border-radius:999px; padding:.15rem .5rem; background:#fff;
+    }
+    #user-input{flex:1; border:none; outline:none; font-size:1rem; padding:.6rem .2rem; background:transparent}
+
+    /* emoji panel */
+    .emoji-panel{
+      position:absolute; bottom:70px; left:50%; transform:translateX(-50%); z-index:20; background:#fff; border:1px solid var(--ring);
+      border-radius:14px; box-shadow:0 12px 30px rgba(0,0,0,.12); width:min(620px,92vw); max-height:300px; display:none; flex-direction:column; overflow:hidden;
+    }
+    .emoji-panel.active{display:flex}
+    .emoji-head{display:flex; gap:.5rem; align-items:center; padding:.5rem .7rem; border-bottom:1px solid var(--ring)}
+    .emoji-search{flex:1; border:1px solid var(--ring); border-radius:10px; padding:.45rem .6rem; font-size:.95rem}
+    .emoji-grid{padding:.6rem; display:grid; grid-template-columns:repeat(12,1fr); gap:.25rem; overflow:auto}
+    .emoji-item{font-size:1.25rem; padding:.35rem; border-radius:8px; cursor:pointer; text-align:center}
+    .emoji-item:hover{background:#f5f5ff}
+    .emoji-empty{padding:1rem; color:#777; text-align:center}
+
+    /* human bubble option (kept simple) */
+    .chat-container[data-theme="human"] .message.user .bubble{background:#1877f2}
+    .chat-container[data-theme="human"] .message.bot .bubble{background:#eef1f9}
+
+    @media (max-width:560px){
+      .bubble{max-width:88%}
+      .emoji-grid{grid-template-columns:repeat(8,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand"><div style="font-size:1.35rem">🤖</div><h1>LingoBot</h1></div>
+    <div class="hint">Friendly, clean, and realistic — no gimmicks.</div>
+  </div>
+
+  <div class="chat-container" id="chatContainer" data-theme="human">
+    <div id="chat-box" aria-live="polite" aria-label="Chat messages">
+      <div class="message bot">
+        <div class="avatar bot">🤖</div>
+        <div class="bubble">👋 Welcome! I can check grammar, suggest better phrasing, and summarize. Try: “fix grammar in this sentence”.</div>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <button class="icon-btn" id="emojiBtn" title="Emoji picker" aria-haspopup="true" aria-expanded="false">😊</button>
+      <div class="input-wrap">
+        <input id="user-input" type="text" placeholder="Type your message…" maxlength="500" autocomplete="off" />
+      </div>
+      <button class="btn primary" id="sendBtn" type="button">Send</button>
+    </div>
+
+    <!-- Emoji Panel -->
+    <div class="emoji-panel" id="emojiPanel" role="dialog" aria-label="Emoji picker">
+      <div class="emoji-head">
+        <input id="emojiSearch" class="emoji-search" type="text" placeholder="Search emoji…" />
+        <button class="btn" id="emojiClose" type="button">Close ✖</button>
+      </div>
+      <div id="emojiGrid" class="emoji-grid" role="listbox"></div>
+      <div id="emojiEmpty" class="emoji-empty" style="display:none">No matches</div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------
+    // helpers
+    // -------------------------
+    const $ = (s, r=document)=>r.querySelector(s);
+    function escapeHTML(str){
+      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    const nowTime = ()=> new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+    // -------------------------
+    // Keyword → emoji map
+    // (lowercase keys; simple replace)
+    // -------------------------
+    const KEY_EMOJI = {
+      "error":"⚠️","warning":"⚠️","bug":"🐛","issue":"❗",
+      "success":"✅","passed":"✅","ok":"✅","done":"✅",
+      "fail":"❌","failed":"❌",
+      "idea":"💡","tip":"💡","note":"📝","summary":"📝",
+      "time":"⏱️","deadline":"⏰","wait":"⏳",
+      "deploy":"🚀","ship":"🚀","launch":"🚀",
+      "improve":"✨","optimize":"✨","fix":"🔧","update":"🔄",
+      "love":"❤️","thanks":"🙏","thank you":"🙏","great":"🌟","star":"🌟"
+    };
+    function autoEmojify(text){
+      let out = text;
+      Object.keys(KEY_EMOJI).forEach(k=>{
+        const re = new RegExp(`\\b${k.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')}\\b`, 'gi');
+        out = out.replace(re, m => `${m} ${KEY_EMOJI[k]}`);
+      });
+      return out;
+    }
+
+    // -------------------------
+    // emoji picker
+    // -------------------------
+    const COMMON_EMOJI = ["😀","😁","😂","🤣","🙂","😉","😊","😍","😅","🥳","🤝","👍","👎","👏","🙏","✍️","💡","🔥","⭐","🎯","🧠","📚","✅","❌","⚠️","⏳","📌","📝","📣","💬","🔍","🔗","📈","📉","📊","💻","📱","🕒","🌟","🚀","💯"];
+    const emojiBtn = $('#emojiBtn'), emojiPanel = $('#emojiPanel'), emojiGrid = $('#emojiGrid');
+    const emojiSearch = $('#emojiSearch'), emojiEmpty = $('#emojiEmpty'), emojiClose = $('#emojiClose');
+    const userInput = $('#user-input');
+
+    function populateEmoji(list){
+      emojiGrid.innerHTML=''; emojiEmpty.style.display = list.length ? 'none' : 'block';
+      list.forEach(e=>{
+        const b=document.createElement('button'); b.type='button'; b.className='emoji-item'; b.textContent=e;
+        b.onclick=()=>{ insertAtCursor(userInput, e); hideEmoji(); };
+        emojiGrid.appendChild(b);
+      });
+    }
+    function insertAtCursor(inp, text){
+      const [s, e] = [inp.selectionStart, inp.selectionEnd]; const v = inp.value;
+      inp.value = v.slice(0,s) + text + v.slice(e); const pos = s + text.length; inp.selectionStart = inp.selectionEnd = pos; inp.focus();
+    }
+    function showEmoji(){ populateEmoji(COMMON_EMOJI); emojiPanel.classList.add('active'); emojiBtn.setAttribute('aria-expanded','true'); emojiSearch.value=''; emojiSearch.focus(); }
+    function hideEmoji(){ emojiPanel.classList.remove('active'); emojiBtn.setAttribute('aria-expanded','false'); }
+    emojiBtn.onclick = (e)=>{ e.stopPropagation(); emojiPanel.classList.contains('active') ? hideEmoji() : showEmoji(); };
+    emojiClose.onclick = hideEmoji;
+    emojiSearch.oninput = ()=>{
+      const q = emojiSearch.value.trim().toLowerCase();
+      if(!q) return populateEmoji(COMMON_EMOJI);
+      const map = { happy:["😀","😁","😂","🤣","🙂","😉","😊","😅","🥳"], sad:["😢","😭","😔"], angry:["😡","😤"], idea:["💡"], ok:["👍","✅"], no:["👎","❌"], warning:["⚠️"], star:["⭐","🌟"], rocket:["🚀"], clap:["👏"], pray:["🙏"], write:["✍️","📝"], search:["🔍"], graph:["📈","📉","📊"], time:["🕒","⏳"] };
+      const hits = new Set(); Object.keys(map).forEach(k=>{ if(k.includes(q)) map[k].forEach(e=>hits.add(e)); });
+      populateEmoji([...hits]);
+    };
+    document.addEventListener('click', e=>{ if(!emojiPanel.contains(e.target) && e.target!==emojiBtn) hideEmoji(); });
+
+    // -------------------------
+    // rendering
+    // -------------------------
+    function addBot(text){
+      const chat = $('#chat-box');
+      const row = document.createElement('div'); row.className='message bot';
+      const av = document.createElement('div'); av.className='avatar bot'; av.textContent='🤖';
+      const b = document.createElement('div'); b.className='bubble';
+      b.textContent = autoEmojify(text);
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent = nowTime();
+
+      const col = document.createElement('div'); col.style.display='flex'; col.style.flexDirection='column';
+      col.appendChild(b); col.appendChild(meta);
+
+      row.appendChild(av); row.appendChild(col);
+      chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+    }
+
+    // user message as horizontal tokens
+    function addUserTokens(text){
+      const chat = $('#chat-box');
+      const row = document.createElement('div'); row.className='message user';
+      const av = document.createElement('div'); av.className='avatar user'; av.textContent='🙂';
+      const b = document.createElement('div'); b.className='bubble tokenized';
+
+      const words = text.split(/\s+/).filter(Boolean);
+      words.forEach(w=>{
+        const token = document.createElement('span'); token.className='token';
+        const low = w.toLowerCase();
+        const em = Object.keys(KEY_EMOJI).find(k=> k===low);
+        token.innerHTML = `<span>${escapeHTML(w)}</span>${em ? `<span class="e">${KEY_EMOJI[em]}</span>` : ""}`;
+        b.appendChild(token);
+      });
+
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent = nowTime();
+      const col = document.createElement('div'); col.style.display='flex'; col.style.flexDirection='column';
+      col.appendChild(b); col.appendChild(meta);
+
+      // keep avatar on the side, tokens in a single horizontal flow
+      row.insertBefore(col, av);
+      chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+    }
+
+    // minimal typing indicator (kept realistic)
+    let typingEl = null;
+    function showTyping(){
+      if(typingEl) return;
+      const chat = $('#chat-box');
+      const row = document.createElement('div'); row.className='typing';
+      row.innerHTML = `<div class="avatar bot">🤖</div><div class="bubble">typing<span class="dots"><span></span><span></span><span></span></span></div>`;
+      typingEl = row; chat.appendChild(row); chat.scrollTop = chat.scrollHeight;
+    }
+    function hideTyping(){ if(typingEl){ typingEl.remove(); typingEl=null; } }
+
+    // -------------------------
+    // send flow (GET for compatibility with your current view)
+    // -------------------------
+    async function sendMessage(){
+      const inp = $('#user-input');
+      const msg = inp.value.trim();
+      if(!msg) return;
+
+      addUserTokens(msg); // horizontal chips with emoji hints
+      inp.value='';
+
+      showTyping();
+      try{
+        const res = await fetch('/chatbot/get_response/?message=' + encodeURIComponent(msg));
+        const data = await res.json();
+        hideTyping();
+        addBot(String(data && data.reply ? data.reply : "⚠️ Sorry, I’m having trouble."));
+      }catch{
+        hideTyping();
+        addBot("⚠️ Technical error, please try again in a moment.");
+      }
+    }
+
+    $('#sendBtn').onclick = sendMessage;
+    $('#user-input').addEventListener('keydown', e=>{
+      if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+    });
+
+    // init emoji grid
+    populateEmoji(COMMON_EMOJI);
+  </script>
+</body>
+</html>

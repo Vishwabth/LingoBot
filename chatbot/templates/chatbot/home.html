@@ -1,0 +1,349 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LingoBot</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f9fafb;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Navbar */
+    .navbar {
+      background: #6366f1;
+      color: #fff;
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* Layout */
+    .layout {
+      flex: 1;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 320px;
+      background: #fff;
+      border-right: 1px solid #eee;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .sidebar h3 {
+      margin: 0 0 .5rem 0;
+      color: #333;
+    }
+    .sidebar p {
+      color: #555;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #f9fafb;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Floating Button */
+    .floating-logo {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #6366f1;
+      color: #fff;
+      padding: 1rem;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+      transition: transform .3s;
+      z-index: 1000;
+    }
+    .floating-logo:hover { transform: scale(1.1); }
+
+    /* Chat Drawer */
+    .chat-drawer {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 380px;
+      height: 100%;
+      background: #fff;
+      box-shadow: -2px 0 10px rgba(0,0,0,.15);
+      display: flex;
+      flex-direction: column;
+      transition: right .3s ease;
+      z-index: 999;
+    }
+    .chat-drawer.open { right: 0; }
+
+    .chat-head {
+      background: #fafafa;
+      border-bottom: 1px solid #eee;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    .close-btn {
+      border: none;
+      background: transparent;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .examples {
+      display: flex;
+      gap: .5rem;
+      padding: .5rem 1rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #eee;
+    }
+    .ex {
+      background: #f4f4f4;
+      padding: .3rem .7rem;
+      border-radius: 6px;
+      font-size: .85rem;
+      cursor: pointer;
+    }
+    .ex:hover { background: #e5e5e5; }
+
+    .chat-body {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background: #fff;
+    }
+    .msg {
+      margin-bottom: 1rem;
+      padding: .6rem .8rem;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+    .msg.user {
+      background: #6366f1;
+      color: #fff;
+      margin-left: auto;
+    }
+    .msg.bot {
+      background: #f3f4f6;
+      color: #111;
+      margin-right: auto;
+      white-space: pre-wrap; /* preserve newlines */
+    }
+
+    /* Markdown Support */
+    .msg.bot strong {
+      font-weight: 600; /* **bold** */
+      color: #000;
+    }
+    .msg.bot em {
+      font-style: italic; /* *italic* */
+    }
+    .msg.bot del {
+      text-decoration: line-through; /* ~~strikethrough~~ */
+      color: #b91c1c;
+    }
+
+    .chat-input {
+      display: flex;
+      padding: .8rem;
+      border-top: 1px solid #eee;
+      background: #fafafa;
+    }
+    .chat-input input {
+      flex: 1;
+      padding: .5rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .chat-input button {
+      margin-left: .5rem;
+      padding: .5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #6366f1;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* Typing Indicator */
+    .typing {
+      display: flex;
+      gap: 4px;
+      padding: .5rem .8rem;
+      background: #f3f4f6;
+      border-radius: 8px;
+      width: fit-content;
+      margin-bottom: 1rem;
+    }
+    .typing span {
+      width: 6px;
+      height: 6px;
+      background: #555;
+      border-radius: 50%;
+      animation: blink 1.4s infinite both;
+    }
+    .typing span:nth-child(2) { animation-delay: .2s; }
+    .typing span:nth-child(3) { animation-delay: .4s; }
+
+    @keyframes blink {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <div class="navbar">🤖 LingoBot</div>
+
+  <!-- Layout -->
+  <div class="layout">
+    <div class="sidebar">
+
+      <div class="card" id="dateCard">
+        <h3>📅 Today</h3>
+        <p id="todayDate"></p>
+      </div>
+
+      <div class="card">
+        <h3>⚙️ How It Works</h3>
+        <p>1. Type or paste your text.</p>
+        <p>2. LingoBot analyzes grammar, spelling, tone & sentiment.</p>
+        <p>3. Get instant corrections and suggestions.</p>
+      </div>
+
+      <div class="card">
+        <h3>💭 Thought of the Day</h3>
+        <p id="thoughtText"></p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating button -->
+  <div id="chatToggle" class="floating-logo">🤖</div>
+
+  <!-- Chat Drawer -->
+  <div id="chatDrawer" class="chat-drawer">
+    <div class="chat-head">
+      <span>LingoBot</span>
+      <button id="closeChat" class="close-btn">×</button>
+    </div>
+
+    <div class="examples">
+      <div class="ex">✨ Fix my grammar</div>
+      <div class="ex">✨ Summarize my text</div>
+      <div class="ex">✨ Rewrite politely</div>
+      <div class="ex">✨ Suggest better tone</div>
+    </div>
+
+    <div id="chatBody" class="chat-body"></div>
+
+    <div class="chat-input">
+      <input type="text" id="msg" placeholder="Type a message..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chatToggle = document.getElementById("chatToggle");
+    const chatDrawer = document.getElementById("chatDrawer");
+    const closeChat = document.getElementById("closeChat");
+    const chatBody = document.getElementById("chatBody");
+    const msgInput = document.getElementById("msg");
+    const sendBtn = document.getElementById("sendBtn");
+
+    // Floating button visibility logic
+    chatToggle.addEventListener("click", () => {
+      chatDrawer.classList.add("open");
+      chatToggle.style.display = "none";
+    });
+    closeChat.addEventListener("click", () => {
+      chatDrawer.classList.remove("open");
+      chatToggle.style.display = "block";
+    });
+
+    // Add message
+    function addMessage(text, sender = "bot") {
+      const msg = document.createElement("div");
+      msg.classList.add("msg", sender);
+      // ✅ Markdown-safe rendering
+      msg.innerHTML = text.replace(/\n/g, "<br>");
+      chatBody.appendChild(msg);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    // Typing indicator
+    function showTyping() {
+      const typing = document.createElement("div");
+      typing.classList.add("typing");
+      typing.id = "typing";
+      typing.innerHTML = "<span></span><span></span><span></span>";
+      chatBody.appendChild(typing);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+    function hideTyping() {
+      const typing = document.getElementById("typing");
+      if (typing) typing.remove();
+    }
+
+    // Send message
+    sendBtn.addEventListener("click", async () => {
+      const text = msgInput.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      msgInput.value = "";
+
+      showTyping();
+
+      try {
+        const res = await fetch("/get_response/?message=" + encodeURIComponent(text));
+        const data = await res.json();
+        hideTyping();
+        addMessage(data.reply, "bot");
+      } catch (e) {
+        hideTyping();
+        addMessage("⚠️ Error connecting to server.", "bot");
+      }
+    });
+
+    msgInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendBtn.click();
+    });
+
+    // Today's date
+    const today = new Date();
+    document.getElementById("todayDate").textContent =
+      today.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+    // Thought of the day
+    const thoughts = [
+      "Communication is the key to success.",
+      "Clear words create stronger connections.",
+      "A well-written message opens more doors.",
+      "Every conversation is a chance to shine.",
+      "Confidence begins with clarity."
+    ];
+    document.getElementById("thoughtText").textContent =
+      thoughts[Math.floor(Math.random() * thoughts.length)];
+  </script>
+</body>
+</html>
